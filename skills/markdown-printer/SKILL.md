@@ -1,41 +1,42 @@
 ---
 name: markdown-printer
 description: 把 Markdown (.md) 檔轉成排版精美的 A4 技術文件 PDF（封面頁、頁首標題、頁碼、GitHub 風格 callout、表格、程式碼區塊）。當使用者要把 .md 轉成 PDF、列印 Markdown、輸出或匯出 Markdown 為 PDF、幫 md 文件加封面，或提到 Markdown Printer / md_beautify 時使用。Convert Markdown files into styled, print-ready PDFs with a cover page.
+license: MIT
+compatibility: 需要 Python 3.9+ 與 markdown、weasyprint 套件，WeasyPrint 另需 Pango 系統函式庫（Windows 建議用 conda-forge 安裝）。雲端沙盒可自動安裝，需要網路。
 ---
 
 # Markdown Printer
 
-用這個 skill 資料夾裡的 `scripts/md_beautify.py`（WeasyPrint）把 Markdown 轉成 A4 PDF。下面的 `<skill>` 指的是這份 SKILL.md 所在的資料夾。
+用這個 skill 資料夾裡的 `scripts/md_beautify.py`（WeasyPrint）把 Markdown 轉成 A4 PDF。下面的 `<skill>` 指的是這份 SKILL.md 所在的資料夾，`<python>` 指第 1 步找到的 Python。
 
-## 1. 準備環境
-
-以下指令以 `python3` 為例，Windows 上通常改用 `python`。先確認 Python 套件，缺少才安裝：
+## 1. 找到可用的 Python
 
 ```bash
-python3 -c "import markdown, weasyprint" 2>/dev/null || pip install --quiet markdown weasyprint
+python3 <skill>/scripts/find_python.py
 ```
 
-Linux 上如果 `import weasyprint` 出現找不到 `libpango`、`libgobject` 之類的錯誤，代表缺系統函式庫，有權限時安裝：
+`python3` 不存在時改用 `python`。這支腳本只用標準函式庫，會依序嘗試環境變數 `MARKDOWN_PRINTER_PYTHON`、PATH 上的 Python 與已安裝 weasyprint 的 conda 環境，每個都實際排版一頁 PDF 測試，成功就印出那個 Python 的路徑，之後的指令都用它。同一段對話裡找到一次即可，不用每次轉換都重找。
 
-```bash
-apt-get install -y libpango-1.0-0 libpangoft2-1.0-0
-```
+全部失敗時，依所在環境處理：
 
-文件含中文時，確認系統有中文字型，否則中文會變成方框：
+- **雲端沙盒或拋棄式容器**（例如 claude.ai，通常有 `/mnt/user-data/`）：直接安裝，再重跑 `find_python.py`。
 
-```bash
-fc-list :lang=zh | head -3
-```
+  ```bash
+  pip install --quiet markdown weasyprint
+  ```
 
-沒有輸出就嘗試 `apt-get install -y fonts-noto-cjk`。裝不了的話照樣轉換，但要告訴使用者中文可能無法正確顯示。
+  若錯誤提到 `libpango`、`libgobject`，有權限時執行 `apt-get install -y libpango-1.0-0 libpangoft2-1.0-0`。
+- **使用者自己的電腦**：不要直接 `pip install` 到使用者的 Python 環境。macOS 與 Linux 上若有 `uv`，改用 `uv run <skill>/scripts/md_beautify.py --check` 測試，通過的話之後都用 `uv run <skill>/scripts/md_beautify.py` 取代 `<python> <skill>/scripts/md_beautify.py`，uv 會依腳本開頭宣告的套件建立獨立的環境，不影響使用者原本的環境。仍然不行時，把 `find_python.py` 印出的原因告訴使用者，說明要安裝什麼，經使用者同意後再安裝。Windows 上 pip 裝不到 WeasyPrint 需要的 GTK，建議使用者建立 conda 環境（`conda create -n md-printer -c conda-forge python weasyprint markdown`）。
 
-Windows 上 `import weasyprint` 失敗多半是缺 GTK，建議使用者用 conda 安裝（`conda install -c conda-forge weasyprint`），並用那個環境的 Python 執行腳本。
+文件含中文時，在 Linux 上用 `fc-list :lang=zh | head -3` 確認有中文字型。沒有輸出就嘗試 `apt-get install -y fonts-noto-cjk`，裝不了的話照樣轉換，但要告訴使用者中文可能無法正確顯示。
 
 ## 2. 轉換
 
 ```bash
-python3 <skill>/scripts/md_beautify.py "<input.md>" -o "<output.pdf>" -c random [其他選項]
+<python> <skill>/scripts/md_beautify.py "<input.md>" -o "<output.pdf>" -c random [其他選項]
 ```
+
+Windows 上在指令前加上 `PYTHONIOENCODING=utf-8`（PowerShell 用 `$env:PYTHONIOENCODING='utf-8';`），避免中文訊息變成亂碼。
 
 - 一定要傳入輸入檔，不帶參數會嘗試開啟圖形介面。
 - 在雲端環境（例如 claude.ai）要把 PDF 寫到使用者拿得到的輸出資料夾，通常是 `/mnt/user-data/outputs/`。使用者上傳的檔案通常在 `/mnt/user-data/uploads/`。

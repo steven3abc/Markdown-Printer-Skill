@@ -58,6 +58,14 @@ New-Item -ItemType Directory -Force "$HOME\.claude\skills" | Out-Null; Copy-Item
 
 由於 Codex、Gemini CLI 與 Cursor 都會讀取 `~/.agents/skills/`，裝在這裡一次就能讓三者共用，而 Cursor 也會讀取 `~/.claude/skills/`，已經裝給 Claude Code 的話不必再裝一次。各家的路徑可能隨版本調整，以官方文件為準：[Claude Code](https://code.claude.com/docs/en/skills)、[Codex](https://learn.chatgpt.com/docs/build-skills)、[Gemini CLI](https://geminicli.com/docs/cli/skills/)、[Cursor](https://cursor.com/docs/skills)、[VS Code](https://code.visualstudio.com/docs/copilot/customization/agent-skills)。
 
+開發這個 skill 時，可以改用連結取代複製，修改 repository 後 Agent 立即生效，不必重新複製。Windows 上用 junction，不需要系統管理員權限：
+
+```powershell
+New-Item -ItemType Junction -Path "$HOME\.claude\skills\markdown-printer" -Target "<repo 路徑>\skills\markdown-printer"
+```
+
+macOS 與 Linux 用 `ln -s "<repo 路徑>/skills/markdown-printer" ~/.claude/skills/markdown-printer`。
+
 ### 方法三：用 Agent 內建的安裝指令
 
 Gemini CLI 可以直接從 GitHub 安裝：
@@ -84,11 +92,15 @@ python build_skill.py
 
 ## 環境需求
 
-skill 實際上是由 Agent 執行 `scripts/md_beautify.py`，所以 Agent 所在的電腦需要 Python 3.9 以上版本，以及 `markdown` 與 `weasyprint` 兩個套件。缺少套件時 skill 會嘗試自動用 pip 安裝，也可以自己先裝好：
+skill 實際上是由 Agent 執行 `scripts/md_beautify.py`，所以 Agent 所在的電腦需要 Python 3.9 以上版本，以及 `markdown` 與 `weasyprint` 兩個套件。Agent 會先執行 `scripts/find_python.py`，自動從 PATH 與 conda 環境中找出能實際產生 PDF 的 Python，有多個環境時也可以用環境變數 `MARKDOWN_PRINTER_PYTHON` 指定。
+
+skill 不會擅自把套件裝進你電腦上的 Python。macOS 與 Linux 上有 [uv](https://docs.astral.sh/uv/) 的話，Agent 會用 `uv run` 建立獨立的環境，否則會先說明缺少什麼，經你同意後才安裝。只有在 claude.ai 這類用完即丟的雲端沙盒裡，才會直接用 pip 安裝。想自己先裝好的話：
 
 ```bash
 pip install -r requirements.txt
 ```
+
+要確認環境是否正常，可以執行 `python skills/markdown-printer/scripts/md_beautify.py --check`，它會實際排版一頁 PDF，正常時印出 `OK`。
 
 [WeasyPrint](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html) 還需要 Pango 等系統函式庫，各平台的安裝方式如下：
 
@@ -164,6 +176,7 @@ convert_markdown_to_pdf("notes.md", "notes.pdf", author="王小明", cover_theme
 skills/markdown-printer/
   SKILL.md               給 Agent 看的說明：何時使用、如何準備環境與下指令
   scripts/md_beautify.py 轉換程式，包含轉換函式、圖形介面與命令列
+  scripts/find_python.py 找出能執行轉換程式的 Python
 examples/sample.md       示範所有支援語法的範例文件
 build_skill.py           把 skill 打包成 claude.ai 用的 zip
 run.bat                  Windows 上開啟圖形介面的捷徑

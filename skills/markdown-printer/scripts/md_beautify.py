@@ -1,6 +1,14 @@
+# /// script
+# requires-python = ">=3.9"
+# dependencies = [
+#     "markdown>=3.4",
+#     "weasyprint>=60",
+# ]
+# ///
 """Markdown Printer：把 Markdown 轉成排版好的 A4 技術文件 PDF。
 
-不帶參數執行會開啟圖形介面，帶入 Markdown 檔案路徑則以命令列模式轉換。
+不帶參數執行會開啟圖形介面，帶入 Markdown 檔案路徑則以命令列模式轉換，
+加上 --check 則只檢查執行環境。上方的 script 區塊讓 `uv run` 可以自動準備套件。
 """
 import os
 import sys
@@ -19,8 +27,33 @@ if os.name == 'nt':
         os.environ['PATH'] = _dll_dir + os.pathsep + os.environ.get('PATH', '')
         os.environ.setdefault('WEASYPRINT_DLL_DIRECTORIES', _dll_dir)
 
-import markdown
-from weasyprint import HTML, CSS
+# markdown 與 weasyprint 延後到實際轉換時才載入，
+# 缺套件或缺系統函式庫時才能印出清楚的錯誤，而不是一進程式就崩潰
+markdown = HTML = CSS = None
+
+def _load_deps():
+    global markdown, HTML, CSS
+    if HTML is None:
+        import markdown as _markdown
+        from weasyprint import HTML as _HTML, CSS as _CSS
+        markdown, HTML, CSS = _markdown, _HTML, _CSS
+
+def check_environment():
+    """實際排版一頁含中文的小 PDF，確認套件、系統函式庫都能正常運作。回傳錯誤訊息，正常則回傳 None"""
+    try:
+        _load_deps()
+        HTML(string='<p>Markdown Printer 環境檢查</p>').write_pdf()
+    except ImportError as e:
+        return f'缺少 Python 套件：{e}。請安裝 markdown 與 weasyprint'
+    except Exception as e:
+        hint = ''
+        if os.name == 'nt':
+            hint = ('\nWindows 上通常是缺少 GTK/Pango，或 PATH 上有其他程式附帶的舊版 DLL。'
+                    '建議用 conda 安裝：conda install -c conda-forge weasyprint，並用該環境的 Python 執行')
+        else:
+            hint = '\nLinux 需要 libpango-1.0-0 與 libpangoft2-1.0-0，macOS 需要 brew install pango'
+        return f'WeasyPrint 無法排版：{e}{hint}'
+    return None
 
 CALLOUT_LABELS = {
     'NOTE': 'Note',
@@ -155,6 +188,7 @@ def generate_tech_doc_html(md_text, title, author, subtitle="", with_cover=True,
     # extra = tables、fenced_code、attr_list、def_list、abbr、footnotes 等
     # (extra 內含 md_in_html，讓提示框 <div markdown="1"> 裡的 Markdown 也會被轉換)
     extensions = ['extra', 'toc', 'sane_lists']
+    _load_deps()
     html_body = markdown.markdown(process_github_callouts(md_text), extensions=extensions)
 
     font_stack = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans TC", "Microsoft JhengHei", "PingFang TC", "Noto Sans CJK TC", sans-serif'
@@ -411,6 +445,7 @@ def generate_tech_doc_html(md_text, title, author, subtitle="", with_cover=True,
 def convert_markdown_to_pdf(input_path, output_path, title=None, author="", subtitle="",
                             with_cover=True, css_path=None, cover_theme='經典藍'):
     """核心轉換函式：將 Markdown 轉為 PDF"""
+    _load_deps()
     md_text = read_markdown(input_path)
 
     if not title:
@@ -649,10 +684,19 @@ def main():
     parser.add_argument("-s", "--subtitle", default="Official Documentation & Best Practices", help="封面副標題")
     parser.add_argument("--no-cover", action="store_true", help="不產生封面頁")
     parser.add_argument("--css", help="額外套用的 CSS 檔案")
+    parser.add_argument("--check", action="store_true", help="只檢查執行環境能否產生 PDF，正常時印出 OK")
     aliases = ', '.join(f'{en}={zh}' for en, zh in COVER_ALIASES.items())
     parser.add_argument("-c", "--cover-color", default=COVER_CHOICES[0], metavar="COLOR",
                         help=f"封面配色：{'、'.join(COVER_CHOICES)}，或英文別名 {aliases} (預設：經典藍)")
     args = parser.parse_args()
+
+    if args.check:
+        error = check_environment()
+        if error:
+            print(f'環境檢查失敗：{error}', file=sys.stderr)
+            sys.exit(1)
+        print(f'OK ({sys.executable})')
+        return
 
     if args.input is None:
         # 建立主視窗並啟動事件迴圈
