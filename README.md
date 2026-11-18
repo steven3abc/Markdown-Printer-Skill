@@ -1,6 +1,6 @@
 # Markdown Printer Skill
 
-Markdown Printer Skill 把 Markdown 檔案轉成排版好的 A4 技術文件 PDF，會自動加上封面頁、頁首標題與頁碼，並支援 GitHub 風格的提示框、表格與程式碼區塊。它有圖形介面與命令列兩種用法，也可以打包成 Claude 的 skill，讓 Claude 直接幫你轉檔。
+Markdown Printer Skill 把 Markdown 檔案轉成排版好的 A4 技術文件 PDF，會自動加上封面頁、頁首標題與頁碼，並支援 GitHub 風格的提示框、表格與程式碼區塊。它是一個符合 [Agent Skills](https://agentskills.io) 格式的 skill，裝進 Claude Code、Codex、Gemini CLI、Cursor、GitHub Copilot 等 AI Agent 之後，直接說「把這份 md 轉成 PDF」就能使用。不透過 Agent 時，也可以用圖形介面或命令列單獨執行。
 
 ## 功能
 
@@ -12,28 +12,98 @@ Markdown Printer Skill 把 Markdown 檔案轉成排版好的 A4 技術文件 PDF
 - 可以額外套用自己的 CSS 覆蓋預設樣式
 - 中英文字型都已設定好，中文優先使用 Noto Sans TC 與微軟正黑體
 
-## 安裝
+## 安裝 skill
 
-需要 Python 3.9 以上版本。
+skill 本體是 [`skills/markdown-printer/`](skills/markdown-printer) 這個資料夾，裡面有給 Agent 看的 `SKILL.md` 和轉換程式 `scripts/md_beautify.py`。安裝就是把這個資料夾放進 Agent 會讀取的 skills 目錄，下面三種方式擇一即可。
+
+### 方法一：用 skills CLI 一鍵安裝
+
+已經裝好 Node.js 的話，[skills CLI](https://github.com/vercel-labs/skills) 會偵測電腦上有哪些 Agent，並把 skill 裝到對應的目錄：
+
+```bash
+npx skills add steven3abc/Markdown-Printer-Skill
+```
+
+加上 `-g` 會裝到使用者目錄，所有專案都能用，不加則只裝在目前的專案。要指定 Agent 時用 `-a`，例如 `-a claude-code`。
+
+### 方法二：手動複製
+
+先下載 repository：
+
+```bash
+git clone https://github.com/steven3abc/Markdown-Printer-Skill.git
+```
+
+再把 `skills/markdown-printer` 複製到 Agent 的 skills 目錄。以 Claude Code 為例，macOS 和 Linux 的指令如下：
+
+```bash
+mkdir -p ~/.claude/skills && cp -r Markdown-Printer-Skill/skills/markdown-printer ~/.claude/skills/
+```
+
+Windows PowerShell 的指令如下：
+
+```powershell
+New-Item -ItemType Directory -Force "$HOME\.claude\skills" | Out-Null; Copy-Item -Recurse Markdown-Printer-Skill\skills\markdown-printer "$HOME\.claude\skills\"
+```
+
+其他 Agent 只要把目的地換成下表的目錄。「個人」目錄裡的 skill 在所有專案都能用，「專案」目錄則放在專案根目錄，只對該專案生效，也可以一起提交到版本庫給團隊使用。
+
+| Agent | 個人 | 專案 |
+|---|---|---|
+| Claude Code | `~/.claude/skills/` | `.claude/skills/` |
+| OpenAI Codex | `~/.agents/skills/` | `.agents/skills/` |
+| Gemini CLI | `~/.gemini/skills/` 或 `~/.agents/skills/` | `.gemini/skills/` 或 `.agents/skills/` |
+| Cursor | `~/.cursor/skills/` 或 `~/.agents/skills/` | `.cursor/skills/` 或 `.agents/skills/` |
+| GitHub Copilot（VS Code） | `~/.copilot/skills/` | `.github/skills/` |
+
+由於 Codex、Gemini CLI 與 Cursor 都會讀取 `~/.agents/skills/`，裝在這裡一次就能讓三者共用，而 Cursor 也會讀取 `~/.claude/skills/`，已經裝給 Claude Code 的話不必再裝一次。各家的路徑可能隨版本調整，以官方文件為準：[Claude Code](https://code.claude.com/docs/en/skills)、[Codex](https://learn.chatgpt.com/docs/build-skills)、[Gemini CLI](https://geminicli.com/docs/cli/skills/)、[Cursor](https://cursor.com/docs/skills)、[VS Code](https://code.visualstudio.com/docs/copilot/customization/agent-skills)。
+
+### 方法三：用 Agent 內建的安裝指令
+
+Gemini CLI 可以直接從 GitHub 安裝：
+
+```bash
+gemini skills install https://github.com/steven3abc/Markdown-Printer-Skill.git --path skills/markdown-printer
+```
+
+Codex 內建的 `$skill-installer` 也能從 GitHub 下載 skill，在 Codex 裡輸入 `$skill-installer` 並附上 `https://github.com/steven3abc/Markdown-Printer-Skill/tree/main/skills/markdown-printer` 即可。
+
+### claude.ai 與 Claude 桌面 app
+
+網頁版和桌面 app 的 Chat 要上傳 zip 檔。在 repository 根目錄執行下列指令，會產生 `dist/markdown-printer.zip`：
+
+```bash
+python build_skill.py
+```
+
+接著到 Settings → Capabilities → Skills 上傳這個 zip。claude.ai 的程式在雲端沙盒執行，skill 會自動安裝缺少的 Python 套件，但沙盒如果沒有中文字型，又無法安裝 `fonts-noto-cjk`，中文會顯示成方框。
+
+### 確認安裝成功
+
+重新啟動 Agent 後，大多數 Agent 可以用 `/skills` 查看已載入的 skill，Claude Code 也可以直接輸入 `/markdown-printer` 呼叫。之後說「把 notes.md 轉成 PDF」或「幫這份 md 加封面輸出成 PDF」，Agent 就會使用這個 skill，沒有指定配色時會用隨機配色。
+
+## 環境需求
+
+skill 實際上是由 Agent 執行 `scripts/md_beautify.py`，所以 Agent 所在的電腦需要 Python 3.9 以上版本，以及 `markdown` 與 `weasyprint` 兩個套件。缺少套件時 skill 會嘗試自動用 pip 安裝，也可以自己先裝好：
 
 ```bash
 pip install -r requirements.txt
 ```
 
-[WeasyPrint](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html) 需要 Pango 等系統函式庫，各平台的安裝方式如下：
+[WeasyPrint](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html) 還需要 Pango 等系統函式庫，各平台的安裝方式如下：
 
 - Windows：建議用 conda 安裝，`conda install -c conda-forge weasyprint` 會一併裝好 GTK 與 Pango。程式啟動時會優先使用 conda 環境裡的 DLL，避免 PATH 上其他軟體附帶的舊版 DLL 造成載入失敗。
 - macOS：`brew install pango`
 - Debian、Ubuntu：`apt install libpango-1.0-0 libpangoft2-1.0-0`，含中文的文件還需要 `fonts-noto-cjk`
 
-## 使用方式
+## 不透過 Agent 單獨使用
 
 ### 圖形介面
 
 不帶參數執行就會開啟視窗，Windows 上也可以直接點兩下 `run.bat`。
 
 ```bash
-python md_beautify.py
+python skills/markdown-printer/scripts/md_beautify.py
 ```
 
 選好 Markdown 檔案後，程式會自動填入輸出路徑與標題，調整封面資訊後按「開始轉換」即可。
@@ -42,15 +112,15 @@ python md_beautify.py
 
 ```bat
 @echo off
-start "" "C:\path\to\envs\myenv\pythonw.exe" "%~dp0md_beautify.py"
+start "" "C:\path\to\envs\myenv\pythonw.exe" "%~dp0skills\markdown-printer\scripts\md_beautify.py"
 ```
 
 ### 命令列
 
 ```bash
-python md_beautify.py examples/sample.md
-python md_beautify.py notes.md -o out/notes.pdf -a "王小明" -s "內部文件" -c green
-python md_beautify.py notes.md --no-cover --css my-style.css
+python skills/markdown-printer/scripts/md_beautify.py examples/sample.md
+python skills/markdown-printer/scripts/md_beautify.py notes.md -o out/notes.pdf -a "王小明" -s "內部文件" -c green
+python skills/markdown-printer/scripts/md_beautify.py notes.md --no-cover --css my-style.css
 ```
 
 | 選項 | 說明 | 預設 |
@@ -80,36 +150,24 @@ python md_beautify.py notes.md --no-cover --css my-style.css
 
 ### 在 Python 裡呼叫
 
+把 `skills/markdown-printer/scripts` 加進 `sys.path` 或 `PYTHONPATH` 後即可匯入：
+
 ```python
 from md_beautify import convert_markdown_to_pdf
 
 convert_markdown_to_pdf("notes.md", "notes.pdf", author="王小明", cover_theme="森林綠")
 ```
 
-## 作為 Claude skill 使用
-
-`skill/SKILL.md` 是給 Claude 讀的說明，告訴它何時使用這個工具、如何準備環境與下指令。打包方式如下：
-
-```bash
-python build_skill.py
-```
-
-執行後會產生兩樣東西：
-
-- `dist/markdown-printer/`：複製到 `~/.claude/skills/` 底下，Claude Code 就能使用
-- `dist/markdown-printer.zip`：在 claude.ai 的 Settings → Capabilities → Skills 上傳
-
-安裝後對 Claude 說「把這份 md 轉成 PDF」即可，skill 會在雲端沙盒裡自動安裝缺少的套件，沒有指定配色時則用隨機配色。要注意的是，雲端環境如果沒有中文字型，又無法安裝 `fonts-noto-cjk`，中文會顯示成方框。
-
 ## 專案結構
 
 ```
-md_beautify.py     主程式，包含轉換函式、圖形介面與命令列
-run.bat            Windows 上開啟圖形介面的捷徑
-build_skill.py     把 skill 打包到 dist/
-skill/SKILL.md     Claude skill 的說明檔
-examples/sample.md 示範所有支援語法的範例文件
-requirements.txt   Python 套件需求
+skills/markdown-printer/
+  SKILL.md               給 Agent 看的說明：何時使用、如何準備環境與下指令
+  scripts/md_beautify.py 轉換程式，包含轉換函式、圖形介面與命令列
+examples/sample.md       示範所有支援語法的範例文件
+build_skill.py           把 skill 打包成 claude.ai 用的 zip
+run.bat                  Windows 上開啟圖形介面的捷徑
+requirements.txt         Python 套件需求
 ```
 
 ## 授權

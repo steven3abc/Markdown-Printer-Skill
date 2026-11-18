@@ -9,7 +9,7 @@ description: 把 Markdown (.md) 檔轉成排版精美的 A4 技術文件 PDF（�
 
 ## 1. 準備環境
 
-先確認 Python 套件，缺少才安裝：
+以下指令以 `python3` 為例，Windows 上通常改用 `python`。先確認 Python 套件，缺少才安裝：
 
 ```bash
 python3 -c "import markdown, weasyprint" 2>/dev/null || pip install --quiet markdown weasyprint
@@ -28,6 +28,8 @@ fc-list :lang=zh | head -3
 ```
 
 沒有輸出就嘗試 `apt-get install -y fonts-noto-cjk`。裝不了的話照樣轉換，但要告訴使用者中文可能無法正確顯示。
+
+Windows 上 `import weasyprint` 失敗多半是缺 GTK，建議使用者用 conda 安裝（`conda install -c conda-forge weasyprint`），並用那個環境的 Python 執行腳本。
 
 ## 2. 轉換
 

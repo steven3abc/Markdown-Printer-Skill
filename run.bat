@@ -4,5 +4,5 @@ rem 若存在 run.local.bat (自訂 Python 路徑用，不會進版本庫) 就�
 if exist "%~dp0run.local.bat" (
     call "%~dp0run.local.bat"
 ) else (
-    start "" pythonw "%~dp0md_beautify.py"
+    start "" pythonw "%~dp0skills\markdown-printer\scripts\md_beautify.py"
 )
