@@ -1,6 +1,6 @@
-# Markdown Printer
+# Markdown Printer Skill
 
-Markdown Printer 把 Markdown 檔案轉成排版好的 A4 技術文件 PDF，會自動加上封面頁、頁首標題與頁碼，並支援 GitHub 風格的提示框、表格與程式碼區塊。它有圖形介面與命令列兩種用法，也可以打包成 Claude 的 skill，讓 Claude 直接幫你轉檔。
+Markdown Printer Skill 把 Markdown 檔案轉成排版好的 A4 技術文件 PDF，會自動加上封面頁、頁首標題與頁碼，並支援 GitHub 風格的提示框、表格與程式碼區塊。它有圖形介面與命令列兩種用法，也可以打包成 Claude 的 skill，讓 Claude 直接幫你轉檔。
 
 ## 功能
 
