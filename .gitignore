@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+dist/
+
+# 轉換產生的檔案
+*.pdf
+temp_build.html
+
+# 測試用的第三方文件，不放進版本庫
+architecture.md
+
+.vscode/
+
+# 本機專用的啟動設定
+run.local.bat
